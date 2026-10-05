@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+{% block title %}Fuzzy AHP{% endblock %}
+{% block page_title %}Pembobotan Kriteria — Fuzzy AHP (TFN){% endblock %}
+
+{% block content %}
+
+<div class="alert-custom alert-info mb-4">
+  <i class="bi bi-info-circle-fill" style="flex-shrink:0;margin-top:2px;"></i>
+  <div>
+    <strong>Fuzzy AHP dengan Triangular Fuzzy Number (TFN).</strong>
+    Pilih tingkat kepentingan antar kriteria di sel <span style="color:var(--c-primary);font-weight:700;">hijau (atas diagonal)</span>.
+    Sel abu-abu di bawah diagonal terisi otomatis sebagai invers.
+    Target <strong>CR &lt; 0.1</strong> agar bobot dinyatakan konsisten.
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- ── MATRIKS ─────────────────────────────────────────────────── -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header-custom">
+        <div class="icon-badge" style="background:#d8f3dc;">🔢</div>
+        <h2>Matriks Perbandingan Linguistik</h2>
+      </div>
+      <div class="card-body-custom">
+        <form method="POST" action="/ahp/hitung" id="formAhp">
+          <input type="hidden" name="mode" id="mode_input" value="linguistic">
+          <style>
+          .mode-toggle { display:flex; gap:10px; align-items:center; margin-bottom:12px; }
+          .mode-btn { appearance:none; border:1px solid #d6eadd; background:#f6fff7; color:#2f6b41; padding:6px 12px; border-radius:999px; font-weight:700; cursor:pointer; font-size:13px; box-shadow:inset 0 -2px 0 rgba(0,0,0,0.02); }
+          .mode-btn:hover { transform:translateY(-1px); }
+          .mode-btn:focus { outline:3px solid rgba(79,158,98,0.18); outline-offset:2px; }
+          .mode-btn[data-mode="numeric"] { border-color:#cfe8ff; background:#f5fbff; color:#1f5f9e; }
+          .mode-btn.active { box-shadow: 0 6px 18px rgba(31,95,158,0.08); transform:none; }
+          .mode-btn.active[data-mode="linguistic"] { background:linear-gradient(90deg,#d9f3de,#eafaf0); border-color:#a7d9af; }
+          .mode-btn.active[data-mode="numeric"] { background:linear-gradient(90deg,#dceeff,#eaf6ff); border-color:#9fc6ff; }
+          </style>
+
+          <div class="mode-toggle">
+            <label style="font-weight:600;">Mode input:</label>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="mode-btn" data-mode="linguistic" id="mode_btn_ling">Linguistik</button>
+              <button type="button" class="mode-btn" data-mode="numeric" id="mode_btn_num">Numeric (Crisp)</button>
+            </div>
+            <div style="font-size:12px;color:var(--c-muted);margin-left:8px;">
+              Pilih <strong>Linguistik</strong> untuk dropdown; pilih <strong>Numeric</strong> untuk memasukkan nilai Saaty (1-9) atau pecahan.
+            </div>
+          </div>
+          <div class="ahp-matrix-wrap">
+            <table class="ahp-matrix">
+              <thead>
+                <tr>
+                  <th style="min-width:120px;text-align:left;">Kriteria \ Kriteria</th>
+                  {% for k in kriteria %}
+                  <th style="min-width:115px;">
+                    K{{ loop.index }}<br>
+                    <span style="font-weight:400;font-size:10px;color:var(--c-muted);">
+                      {{ k.nama[:14] }}{{ '…' if k.nama|length > 14 else '' }}
+                    </span>
+                  </th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in cells %}
+                <tr>
+                  <td style="text-align:left;font-weight:600;font-size:12px;background:#f8faf8;padding:8px 10px;">
+                    K{{ loop.index }}: {{ kriteria[loop.index0].nama[:18] }}{{ '…' if kriteria[loop.index0].nama|length > 18 else '' }}
+                  </td>
+
+                  {% for cell in row %}
+
+                    {# ── DIAGONAL ── #}
+                    {% if cell.type == 'diag' %}
+                    <td class="diag" style="text-align:center;background:#f0f4f1;">
+                      <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;">1</span><br>
+                      <span style="font-size:9px;color:var(--c-muted);">(1,1,1)</span>
+                    </td>
+
+                    {# ── UPPER TRIANGLE (dropdown) ── #}
+                    {% elif cell.type == 'upper' %}
+                    <td style="background:#f0faf2;text-align:center;padding:6px 4px;">
+                      <!-- Linguistic select -->
+                      <select name="s_{{ cell.i }}_{{ cell.j }}"
+                              id="sel_{{ cell.i }}_{{ cell.j }}"
+                              class="lang-select mode-linguistic"
+                              style="border:1px solid var(--c-primary2);border-radius:7px;
+                                     padding:5px 6px;font-size:12px;font-weight:600;
+                                     background:#fff;color:var(--c-primary);
+                                     font-family:inherit;cursor:pointer;width:100%;outline:none;">
+                        {% for kode in skala_keys %}
+                        <option value="{{ kode }}"
+                          {% if cell.kode == kode %}selected{% endif %}>
+                          {{ kode }} — {{ skala_label[kode] | default('') }}
+                        </option>
+                        {% endfor %}
+                      </select>
+                      <div style="font-size:9px;color:var(--c-primary);margin-top:3px;
+                                  font-family:'DM Mono',monospace;font-weight:600;"
+                           id="hint_{{ cell.i }}_{{ cell.j }}">
+                        {{ tfn_display[cell.kode] | default('') }}
+                      </div>
+
+                      <!-- Numeric input (hidden by default) -->
+                      <input type="text" name="c_{{ cell.i }}_{{ cell.j }}" id="num_{{ cell.i }}_{{ cell.j }}"
+                             class="mode-numeric" value="{{ cell.crisp }}"
+                             style="display:none;border:1px solid #b7f0c9;border-radius:7px;padding:6px 6px;
+                                    font-weight:600;background:#eafaf0;color:var(--c-primary);width:100%;box-sizing:border-box;">
+                      <div class="num-hint" id="num_hint_{{ cell.i }}_{{ cell.j }}" style="display:none;font-size:9px;color:var(--c-muted);margin-top:4px;">
+                        Masukkan angka (contoh: 3, 1/2, 0.5)
+                      </div>
+                    </td>
+
+                    {# ── LOWER TRIANGLE (auto inverse) ── #}
+                    {% else %}
+                    <td style="background:#fafafa;text-align:center;padding:6px 4px;">
+                      <div id="inv_label_{{ cell.i }}_{{ cell.j }}"
+                           style="font-size:11px;color:var(--c-muted);font-style:italic;font-weight:600;">
+                        {{ inv_label[cell.kode] | default('') }}
+                      </div>
+                      <div id="inv_tfn_{{ cell.i }}_{{ cell.j }}"
+                           style="font-size:9px;color:var(--c-muted);font-family:'DM Mono',monospace;margin-top:2px;">
+                        {{ inv_tfn[cell.kode] | default('') }}
+                      </div>
+                    </td>
+                    {% endif %}
+
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <button type="submit" class="btn-primary-custom">
+              <i class="bi bi-calculator-fill"></i> Hitung Fuzzy AHP
+            </button>
+            <div style="font-size:12px;color:var(--c-muted);">
+              <i class="bi bi-info-circle me-1"></i>
+              Pilih kode di sel <strong>hijau</strong>. Sel abu otomatis menjadi invers.
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Matriks TFN hasil -->
+    {% if bobot.tfn_matrix is defined and bobot.tfn_matrix %}
+    <div class="card mt-3">
+      <div class="card-header-custom">
+        <div class="icon-badge" style="background:#fff3cd;">📐</div>
+        <h2>Matriks TFN Hasil Konversi</h2>
+      </div>
+      <div style="overflow-x:auto;padding:16px;">
+        <table class="ahp-matrix" style="font-size:11px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;"></th>
+              {% for k in kriteria %}<th>K{{ loop.index }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for tfn_row in bobot.tfn_matrix %}
+            <tr>
+              <td style="font-weight:700;font-size:11px;text-align:left;">K{{ loop.index }}</td>
+              {% for cell_tfn in tfn_row %}
+              <td>
+                <span style="font-family:'DM Mono',monospace;font-size:10px;
+                  color:{{ 'var(--c-muted)' if loop.index0 == loop.index0 else 'var(--c-primary)' }};">
+                  ({{ cell_tfn[0] }}, {{ cell_tfn[1] }}, {{ cell_tfn[2] }})
+                </span>
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div style="font-size:11px;color:var(--c-muted);margin-top:8px;">
+          Format <strong>(l, m, u)</strong>: l=lower bound, m=middle (nilai tengah), u=upper bound.
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── PANEL KANAN ────────────────────────────────────────────── -->
+  <div class="col-lg-4">
+
+    <!-- Hasil bobot -->
+    <div class="card mb-3">
+      <div class="card-header-custom">
+        <div class="icon-badge" style="background:#d8f3dc;">⚖️</div>
+        <h2>Bobot Fuzzy AHP</h2>
+      </div>
+      <div class="card-body-custom">
+
+        {% if bobot.cr is defined %}
+        <div style="margin-bottom:16px;">
+          <span class="cr-badge {{ 'cr-ok' if bobot.valid else 'cr-bad' }}">
+            <i class="bi bi-{{ 'check-circle-fill' if bobot.valid else 'x-circle-fill' }}"></i>
+            CR = {{ bobot.cr }}
+            {{ '✓ Konsisten' if bobot.valid else '✗ Perlu direvisi' }}
+          </span>
+          <div style="font-size:11px;color:var(--c-muted);margin-top:6px;line-height:1.6;">
+            Metode: <strong>Buckley Geometric Mean</strong><br>
+            Defuzzifikasi: <strong>Centre of Area (CoA)</strong>
+          </div>
+        </div>
+        {% endif %}
+
+        {% for k in kriteria %}
+        {% set idx = loop.index0 %}
+        {% set w   = bobot.bobot[idx] if bobot.bobot is defined else 0 %}
+        {% set bf  = bobot.bobot_fuzzy[idx] if bobot.bobot_fuzzy is defined else [0,0,0] %}
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+            <span style="font-size:12px;font-weight:600;line-height:1.3;max-width:160px;">
+              {{ k.nama[:28] }}{{ '…' if k.nama|length > 28 else '' }}
+            </span>
+            <strong style="font-family:'DM Mono',monospace;font-size:14px;color:var(--c-primary);
+                           white-space:nowrap;margin-left:6px;">
+              {{ w }}
+            </strong>
+          </div>
+          <!-- Fuzzy range bar -->
+          <div style="position:relative;height:14px;background:#e8ede9;border-radius:99px;">
+            <div style="position:absolute;top:0;
+                        left:{{ [bf[0]*100, 0]|max|round(1) }}%;
+                        width:{{ [(bf[2]-bf[0])*100, 0]|max|round(1) }}%;
+                        height:100%;background:rgba(64,145,108,.2);border-radius:99px;"></div>
+            <div style="position:absolute;top:0;left:0;
+                        width:{{ (w*100)|round(1) }}%;
+                        height:100%;
+                        background:linear-gradient(90deg,var(--c-primary2),var(--c-accent));
+                        border-radius:99px;min-width:4px;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:3px;">
+            <span style="font-size:10px;color:var(--c-muted);font-family:'DM Mono',monospace;">
+              ({{ bf[0] }}, {{ bf[1] }}, {{ bf[2] }})
+            </span>
+            <span style="font-size:10px;color:var(--c-muted);">{{ (w*100)|round(1) }}%</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Legenda skala -->
+    <div class="card">
+      <div class="card-header-custom">
+        <div class="icon-badge" style="background:#dce8f7;">📋</div>
+        <h2>Skala Linguistik → TFN</h2>
+      </div>
+      <div class="card-body-custom" style="padding:14px;">
+        <table style="width:100%;font-size:12px;border-collapse:collapse;">
+          <tr style="background:var(--c-bg);">
+            <th style="padding:6px 8px;border-bottom:2px solid var(--c-border);text-align:center;">Kode</th>
+            <th style="padding:6px 8px;border-bottom:2px solid var(--c-border);">Makna</th>
+            <th style="padding:6px 8px;border-bottom:2px solid var(--c-border);text-align:center;">TFN</th>
+          </tr>
+          {% set tfn_table = [
+            ('EI','Sama Penting','(1,1,1)'),
+            ('WI','Sedikit Lebih Penting','(1,3,5)'),
+            ('SI','Cukup Lebih Penting','(3,5,7)'),
+            ('FI','Sangat Lebih Penting','(5,7,9)'),
+            ('AI','Mutlak Lebih Penting','(7,9,9)'),
+          ] %}
+          {% for kode, label, tfn_val in tfn_table %}
+          <tr>
+            <td style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--c-border);">
+              <span style="font-weight:700;background:#e8f5e9;border:1px solid #a5d6a7;
+                border-radius:6px;padding:2px 8px;font-family:'DM Mono',monospace;
+                color:var(--c-primary);">{{ kode }}</span>
+            </td>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--c-border);
+                color:var(--c-muted);font-size:11px;">{{ label }}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--c-border);
+                text-align:center;font-family:'DM Mono',monospace;font-size:11px;
+                color:var(--c-primary);font-weight:600;">{{ tfn_val }}</td>
+          </tr>
+          {% endfor %}
+          <tr>
+            <td style="padding:6px 8px;text-align:center;">
+              <span style="font-weight:700;background:#fde8e8;border:1px solid #f5c6cb;
+                border-radius:6px;padding:2px 7px;font-size:11px;color:#7b1d1d;">INV</span>
+            </td>
+            <td style="padding:6px 8px;color:var(--c-muted);font-size:11px;">Otomatis (bawah diagonal)</td>
+            <td style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace;
+                font-size:11px;color:var(--c-muted);">(1/u,1/m,1/l)</td>
+          </tr>
+        </table>
+        <div style="margin-top:10px;padding:10px;background:var(--c-bg);
+             border-radius:8px;font-size:11px;color:var(--c-muted);line-height:1.6;">
+          <strong style="color:var(--c-text);">Cara baca:</strong>
+          Baris = K<sub>i</sub>, Kolom = K<sub>j</sub>.<br>
+          Pilih kode sesuai <em>seberapa lebih penting K<sub>i</sub> dibanding K<sub>j</sub></em>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Mapping TFN dan label invers
+const TFN_MAP = {
+  EI:'(1,1,1)', WI:'(1,3,5)', SI:'(3,5,7)', FI:'(5,7,9)', AI:'(7,9,9)'
+};
+const INV_LABEL = {
+  EI:'EI', WI:'1/WI', SI:'1/SI', FI:'1/FI', AI:'1/AI'
+};
+const INV_TFN = {
+  EI:'(1,1,1)', WI:'(⅕,⅓,1)', SI:'(⅐,⅕,⅓)', FI:'(⅑,⅐,⅕)', AI:'(⅑,⅑,⅐)'
+};
+
+function onSelectChange(i, j) {
+  const sel  = document.getElementById(`sel_${i}_${j}`);
+  if (!sel) return;
+  const kode = sel.value;
+
+  // Update hint TFN di bawah dropdown
+  const hint = document.getElementById(`hint_${i}_${j}`);
+  if (hint) hint.textContent = TFN_MAP[kode] || '';
+
+  // Update sel invers (posisi j,i)
+  const invLabel = document.getElementById(`inv_label_${j}_${i}`);
+  const invTfn   = document.getElementById(`inv_tfn_${j}_${i}`);
+  if (invLabel) invLabel.textContent = INV_LABEL[kode] || '';
+  if (invTfn)   invTfn.textContent   = INV_TFN[kode]   || '';
+}
+
+// Init semua dropdown saat halaman pertama kali load
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('select[id^="sel_"]').forEach(sel => {
+    const parts = sel.id.split('_');       // ['sel', i, j]
+    const i = parseInt(parts[1]);
+    const j = parseInt(parts[2]);
+    sel.addEventListener('change', () => onSelectChange(i, j));
+    onSelectChange(i, j);                  // init tampilan invers
+  });
+  // Mode toggle buttons
+  const modeInput = document.getElementById('mode_input');
+  const btnLing = document.getElementById('mode_btn_ling');
+  const btnNum  = document.getElementById('mode_btn_num');
+  function setMode(mode) {
+    document.querySelectorAll('.mode-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-mode') === mode);
+      b.setAttribute('aria-pressed', b.getAttribute('data-mode') === mode ? 'true' : 'false');
+    });
+    if (modeInput) modeInput.value = mode;
+    document.querySelectorAll('.mode-linguistic').forEach(el => el.style.display = (mode==='linguistic') ? '' : 'none');
+    document.querySelectorAll('.mode-numeric').forEach(el => el.style.display = (mode==='numeric') ? '' : 'none');
+    document.querySelectorAll('.num-hint').forEach(el => el.style.display = (mode==='numeric') ? '' : 'none');
+  }
+  [btnLing, btnNum].forEach(btn => {
+    if (!btn) return;
+    btn.addEventListener('click', () => setMode(btn.getAttribute('data-mode')));
+    btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMode(btn.getAttribute('data-mode')); } });
+  });
+  // Initialize from server-provided mode value if available
+  const initialMode = (modeInput && modeInput.value) ? modeInput.value : 'linguistic';
+  setMode(initialMode);
+});
+</script>
+{% endblock %}

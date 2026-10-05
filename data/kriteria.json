@@ -1,0 +1,9 @@
+[
+  {"id":1,"nama":"Energi","tipe":"benefit","satuan":"kkal"},
+  {"id":2,"nama":"Protein","tipe":"benefit","satuan":"gram"},
+  {"id":3,"nama":"Karbohidrat","tipe":"benefit","satuan":"gram"},
+  {"id":4,"nama":"Lemak","tipe":"benefit","satuan":"gram"},
+  {"id":5,"nama":"Serat","tipe":"benefit","satuan":"gram"},
+  {"id":6,"nama":"Pangan Lokal","tipe":"benefit","satuan":"skor 1-5"},
+  {"id":7,"nama":"Efisiensi Biaya","tipe":"cost","satuan":"Rp"}
+]

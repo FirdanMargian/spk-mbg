@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stat row -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#d8f3dc;">🍽️</div>
+      <div class="stat-val" style="color:var(--c-primary)">{{ total_menu }}</div>
+      <div class="stat-label">Total Alternatif Menu</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#fff3cd;">⚖️</div>
+      <div class="stat-val" style="color:var(--c-accent)">{{ kriteria|length }}</div>
+      <div class="stat-label">Jumlah Kriteria</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:{{ '#d8f3dc' if bobot.valid else '#fde8e8' }};">
+        {{ '✅' if bobot.valid else '⚠️' }}
+      </div>
+      <div class="stat-val" style="color:{{ 'var(--c-primary)' if bobot.valid else 'var(--c-danger)' }}">
+        {{ bobot.cr }}</div>
+      <div class="stat-label">Consistency Ratio (CR) AHP</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#fde8d8;">🏆</div>
+      <div class="stat-val" style="color:var(--c-accent)">
+        {{ top3[0].skor if top3 else '—' }}
+      </div>
+      <div class="stat-label">Skor Tertinggi (SAW)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Top 3 Menu -->
+{% if top3 %}
+<div class="card mb-4">
+  <div class="card-header-custom">
+    <div class="icon-badge" style="background:#fff3cd;">🏆</div>
+    <h2>Rekomendasi Menu Terbaik (Top 3)</h2>
+  </div>
+  <div class="card-body-custom">
+    <div class="row g-3">
+      {% set colors = ['#2d6a4f','#40916c','#74c69d'] %}
+      {% set labels = ['🥇 Peringkat 1','🥈 Peringkat 2','🥉 Peringkat 3'] %}
+      {% for m in top3 %}
+      <div class="col-md-4">
+        <div class="top-menu-card">
+          <div class="rank-header" style="background:{{ colors[loop.index0] }};color:#fff;">
+            {{ labels[loop.index0] }}
+          </div>
+          <div class="menu-body">
+            <div class="menu-name">{{ m.nama }}</div>
+            <div class="menu-desc">{{ m.deskripsi }}</div>
+            <div class="menu-skor">{{ m.skor }}</div>
+            <div style="font-size:11px;color:var(--c-muted);margin-top:2px;">Nilai Preferensi SAW</div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Chart + Bobot -->
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header-custom">
+        <div class="icon-badge" style="background:#dce8f7;">📊</div>
+        <h2>Grafik Skor SAW Semua Menu</h2>
+      </div>
+      <div class="card-body-custom">
+        <canvas id="chartSaw" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header-custom">
+        <div class="icon-badge" style="background:#d8f3dc;">⚖️</div>
+        <h2>Bobot Kriteria (AHP)</h2>
+      </div>
+      <div class="card-body-custom">
+        <canvas id="chartBobot" height="220"></canvas>
+        <div class="mt-3" style="display:flex;flex-wrap:wrap;gap:6px;">
+          {% for k in kriteria %}
+          <span class="bobot-pill">
+            {{ k.nama[:25] }}{{ '…' if k.nama|length > 25 else '' }}
+            <strong>{{ bobot.bobot[loop.index0] }}</strong>
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Alur Sistem -->
+<div class="card mt-3">
+  <div class="card-header-custom">
+    <div class="icon-badge" style="background:#f3e8ff;">🗺️</div>
+    <h2>Alur Kerja Sistem SPK</h2>
+  </div>
+  <div class="card-body-custom">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      {% set steps = [
+        ('📋','Input Data Menu','Tambah alternatif menu beserta nilai tiap kriteria','/menu','Data Menu'),
+        ('⚖️','Pembobotan AHP','Isi matriks perbandingan berpasangan untuk mendapat bobot kriteria','/ahp','Buka AHP'),
+        ('🧮','Perhitungan SAW','Normalisasi + perangkingan otomatis berdasarkan bobot AHP','/hasil','Lihat Hasil'),
+        ('🏆','Rekomendasi','Menu terbaik ditampilkan beserta detail perhitungan','#','Selesai'),
+      ] %}
+      {% for icon, title, desc, link, btn in steps %}
+      <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:12px;padding:14px 16px;flex:1;min-width:150px;">
+        <div style="font-size:22px;margin-bottom:6px;">{{ icon }}</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:3px;">{{ title }}</div>
+        <div style="font-size:11px;color:var(--c-muted);line-height:1.4;margin-bottom:8px;">{{ desc }}</div>
+        <a href="{{ link }}" style="font-size:12px;font-weight:600;color:var(--c-primary);text-decoration:none;">
+          {{ btn }} →
+        </a>
+      </div>
+      {% if not loop.last %}
+      <div style="font-size:20px;color:var(--c-muted);flex-shrink:0;">›</div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+fetch('/api/hasil').then(r=>r.json()).then(data=>{
+  const labels = data.map(d => d.nama.length > 30 ? d.nama.slice(0,30)+'…' : d.nama);
+  const skors  = data.map(d => d.skor);
+  const colors = data.map((d,i) => i===0?'#2d6a4f':i===1?'#40916c':i===2?'#74c69d':'#b7e4c7');
+
+  new Chart(document.getElementById('chartSaw'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Skor SAW', data: skors, backgroundColor: colors, borderRadius: 6 }] },
+    options: {
+      responsive: true, indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { min: 0, max: 1, grid: { color: '#eee' }, ticks: { font: { size: 11 } } },
+        y: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+});
+
+const bobotData = {{ bobot.bobot | tojson }};
+const bobotLabels = {{ kriteria | map(attribute='nama') | list | tojson }};
+new Chart(document.getElementById('chartBobot'), {
+  type: 'doughnut',
+  data: {
+    labels: bobotLabels,
+    datasets: [{ data: bobotData,
+      backgroundColor: ['#2d6a4f','#40916c','#74c69d','#b7e4c7','#f77f00'],
+      borderWidth: 2, borderColor: '#fff' }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } }
+  }
+});
+</script>
+{% endblock %}

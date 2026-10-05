@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Data Menu{% endblock %}
+{% block page_title %}Data Alternatif Menu MBG{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <!-- Form tambah -->
+  <div class="col-lg-4">
+    <div class="card" style="position:sticky;top:80px;">
+      <div class="card-header-custom">
+        <div class="icon-badge" style="background:#d8f3dc;">➕</div>
+        <h2>Tambah Menu Baru</h2>
+      </div>
+      <div class="card-body-custom">
+        <form method="POST" action="/menu/tambah">
+          <div class="form-group">
+            <label class="form-label-custom">Nama Menu</label>
+            <input type="text" name="nama" class="form-control-custom"
+                   placeholder="cth: Nasi + Ayam Goreng + Bayam" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label-custom">Deskripsi</label>
+            <input type="text" name="deskripsi" class="form-control-custom"
+                   placeholder="Keterangan singkat menu">
+          </div>
+
+          <hr style="border-color:var(--c-border);margin:16px 0;">
+          <div style="font-size:12px;font-weight:700;color:var(--c-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">
+            Nilai per Kriteria
+          </div>
+
+          {% for k in kriteria %}
+          <div class="form-group">
+            <label class="form-label-custom">
+              {{ k.nama }}
+              <span style="color:var(--c-muted);font-weight:400;">({{ k.satuan }})</span>
+              <span style="font-size:10px;padding:2px 7px;border-radius:99px;margin-left:4px;
+                background:{{ '#d8f3dc' if k.tipe=='benefit' else '#fde8e8' }};
+                color:{{ '#1b4332' if k.tipe=='benefit' else '#7b1d1d' }};">
+                {{ k.tipe }}
+              </span>
+            </label>
+            <input type="number" step="0.01" name="nilai_{{ k.id }}"
+                   class="form-control-custom" placeholder="0" required>
+          </div>
+          {% endfor %}
+
+          <button type="submit" class="btn-primary-custom" style="width:100%;justify-content:center;margin-top:4px;">
+            <i class="bi bi-plus-lg"></i> Tambahkan Menu
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabel menu -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header-custom" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="icon-badge" style="background:#fff3cd;">🍽️</div>
+          <h2>Daftar Alternatif Menu ({{ menu|length }} menu)</h2>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Nama Menu</th>
+              {% for k in kriteria %}
+              <th style="white-space:nowrap;">{{ k.nama[:18] }}{{ '…' if k.nama|length > 18 else '' }}</th>
+              {% endfor %}
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in menu %}
+            <tr>
+              <td style="color:var(--c-muted);font-size:12px;">{{ loop.index }}</td>
+              <td>
+                <div style="font-weight:600;font-size:13px;">{{ m.nama }}</div>
+                <div style="font-size:11px;color:var(--c-muted);">{{ m.deskripsi }}</div>
+              </td>
+              {% for v in m.nilai %}
+              <td>
+                <span style="font-family:'DM Mono',monospace;font-size:12px;">
+                  {{ v | int if v == v|int else v }}
+                </span>
+              </td>
+              {% endfor %}
+              <td>
+                <form method="POST" action="/menu/hapus/{{ m.id }}"
+                      onsubmit="return confirm('Hapus menu ini?')">
+                  <button type="submit" class="btn-danger-custom">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="{{ kriteria|length + 3 }}" style="text-align:center;color:var(--c-muted);padding:32px;">
+                Belum ada data menu. Tambahkan menu di sebelah kiri.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Legenda kriteria -->
+    <div class="card mt-3">
+      <div class="card-header-custom">
+        <div class="icon-badge" style="background:#dce8f7;">ℹ️</div>
+        <h2>Keterangan Kriteria</h2>
+      </div>
+      <div class="card-body-custom">
+        <div class="row g-2">
+          {% for k in kriteria %}
+          <div class="col-sm-6">
+            <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">{{ '📈' if k.tipe=='benefit' else '📉' }}</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;">{{ k.nama }}</div>
+                <div style="font-size:11px;color:var(--c-muted);">Satuan: {{ k.satuan }} · Tipe:
+                  <span style="font-weight:600;color:{{ 'var(--c-primary)' if k.tipe=='benefit' else 'var(--c-danger)' }};">
+                    {{ k.tipe }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="alert-custom alert-info mt-3" style="margin-bottom:0;">
+          <i class="bi bi-info-circle-fill"></i>
+          <span><strong>Benefit:</strong> nilai lebih tinggi = lebih baik (kalori, protein, dll).
+          <strong>Cost:</strong> nilai lebih rendah = lebih baik (harga/biaya).</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
